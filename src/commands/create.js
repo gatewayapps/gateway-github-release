@@ -70,7 +70,8 @@ export function handler (argv) {
   }
 
   return rnsDownload.getReleaseNotes(opts.projectId, opts.version, downloadOpts)
-    .then((releaseNotes) => {
+    .then((releaseNotesJson) => {
+      const releaseNotes = JSON.parse(releaseNotesJson)
       let releaseNotesMd = rnsDownload.toMarkdown(releaseNotes, opts.locale)
       const previousTag = githubHelper.getPreviousTagForCompare(opts.tag)
       if (previousTag) {
