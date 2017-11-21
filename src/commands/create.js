@@ -53,11 +53,6 @@ export const builder = {
     type: 'string',
     describe: 'Specifies the commitish value to be used for tag. Not used if the tag already exists. The default if not provide is the default branch of repository.'
   },
-  name: {
-    alias: 'n',
-    type: 'string',
-    describe: 'Name for the release. If not provided, the tag name will be used.'
-  },
   version: {
     alias: 'v',
     type: 'string',
@@ -70,12 +65,13 @@ export function handler (argv) {
 
   const downloadOpts = {
     scope: opts.scope,
-    format: 'md',
+    format: 'json',
     locale: opts.locale
   }
 
   return rnsDownload.getReleaseNotes(opts.projectId, opts.version, downloadOpts)
-    .then((releaseNotesMd) => {
+    .then((releaseNotes) => {
+      let releaseNotesMd = rnsDownload.toMarkdown(releaseNotes, opts.locale)
       const previousTag = githubHelper.getPreviousTagForCompare(opts.tag)
       if (previousTag) {
         releaseNotesMd += `\nhttps://github.com/${opts.owner}/${opts.repo}/compare/${previousTag}...${opts.tag}\n`
@@ -96,12 +92,24 @@ export function handler (argv) {
         token: opts.token
       })
 
+      let releaseTitle
+
+      if (releaseNotes.length > 0) {
+        const rn = releaseNotes[0]
+        releaseTitle = rn.version
+        if (rn.name) {
+          releaseTitle += `: ${rn.name}`
+        }
+      } else {
+        releaseTitle = opts.tag
+      }
+
       return github.repos.createRelease({
         owner: opts.owner,
         repo: opts.repo,
         tag_name: opts.tag,
         target_commitish: opts.commit,
-        name: opts.name,
+        name: releaseTitle,
         body: releaseNotesMd,
         draft: false,
         prerelease: false
@@ -147,10 +155,6 @@ function parseOptions (argv) {
 
   if (!opts.locale) {
     opts.locale = 'en-US'
-  }
-
-  if (!opts.name) {
-    opts.name = opts.tag
   }
 
   if (!opts.version) {
